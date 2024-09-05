@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import ChatHistory from './ChatHistory';
+import SummarizeHistory from './SummarizeHistory';
 
 const Chatbot = () => {
   const [userInput, setUserInput] = useState('');
   const [conversationHistory, setConversationHistory] = useState([]);
   const [modelChoice, setModelChoice] = useState('openai'); 
-  const [fullChatHistory, setFullChatHistory] = useState([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [chatHistoryVisible, setChatHistoryVisible] = useState(false);
 
   const chatContainerRef = useRef(null);
 
@@ -38,19 +37,6 @@ const Chatbot = () => {
     } catch (error) {
       console.error('Error sending message:', error);
     }
-  };
-
-  const toggleChatHistory = async () => {
-    setIsLoadingHistory(true);
-    try {
-      const response = await axios.get('http://localhost:5000/chat/history');
-      setFullChatHistory(response.data.chat_history || []);
-    } catch (error) {
-      console.error('Error fetching chat history:', error);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-    setChatHistoryVisible(!chatHistoryVisible);
   };
 
   useEffect(() => {
@@ -84,44 +70,6 @@ const Chatbot = () => {
           </select>
         </div>
       </div>
-
-      <button onClick={toggleChatHistory} style={{
-        padding: '10px 15px',
-        fontSize: '16px',
-        cursor: 'pointer',
-        marginBottom: '20px'
-      }}>
-        {chatHistoryVisible ? 'Hide Chat History' : 'Show Chat History'}
-      </button>
-
-      {chatHistoryVisible && (
-        <div style={{
-          maxHeight: '300px',
-          overflowY: 'auto',
-          border: '1px solid #ccc',
-          padding: '10px',
-          marginBottom: '20px'
-        }}>
-          {isLoadingHistory ? (
-            <p>Loading chat history...</p>
-          ) : fullChatHistory?.length > 0 ? (
-            fullChatHistory.map((interaction, interactionIndex) => (
-              <div key={interactionIndex} style={{
-                marginBottom: '10px',
-                padding: '10px',
-                backgroundColor: '#f0f0f0',
-                borderRadius: '5px'
-              }}>
-                <span style={{ fontWeight: 'bold' }}>User:</span> {interaction[0]}
-                <br />
-                <span style={{ fontWeight: 'bold' }}>Assistant:</span> {interaction[1]}
-              </div>
-            ))
-          ) : (
-            <p>No chat history yet.</p>
-          )}
-        </div>
-      )}
 
       <div ref={chatContainerRef} style={{
         height: '400px',
@@ -167,6 +115,9 @@ const Chatbot = () => {
           borderRadius: '5px'
         }}>Send</button>
       </div>
+
+      <ChatHistory />
+      <SummarizeHistory />
     </div>
   );
 };
