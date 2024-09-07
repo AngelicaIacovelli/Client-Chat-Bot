@@ -1,11 +1,16 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pydantic import BaseModel, ConfigDict
+import nltk
+from nltk.tokenize import sent_tokenize
+from nltk.probability import FreqDist
+from nltk.corpus import stopwords
 import openai
 import anthropic
 import sqlite3
 import os
 from dotenv import load_dotenv
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -13,14 +18,13 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 
+nltk.download('punkt')
+nltk.download('stopwords')
  
 # Set up API keys
 openai.api_key = os.getenv("OPENAI_API_KEY")
-# anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
-client = anthropic.Anthropic(
-    # defaults to os.environ.get("ANTHROPIC_API_KEY")
-    api_key="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",
-)
+anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
+
 # Define Pydantic models for input
 class ChatRequest(BaseModel):
     user_input: str
@@ -44,7 +48,7 @@ def get_model_response(user_input, model_choice="openai", conversation_history=[
     elif model_choice.lower() == "anthropic":
       try:
           conversation_history.append({"role": "user", "content": user_input})
-          response = client.messages.create(
+          response = anthropic.messages.create(
               model="claude-3-5-sonnet-20240620", 
               prompt="\n\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history]),
               max_tokens_to_sample=1000
@@ -60,11 +64,11 @@ def get_model_response(user_input, model_choice="openai", conversation_history=[
 
 # Define a function to store chat history
 def store_chat_history(user_input, model_response):
-    conn = sqlite3.connect('chat_history01.db')
+    conn = sqlite3.connect('chat_history.db')
     cursor = conn.cursor()
 
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS chat_history01 (
+        CREATE TABLE IF NOT EXISTS chat_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_input TEXT NOT NULL,
             model_response TEXT NOT NULL
@@ -75,7 +79,7 @@ def store_chat_history(user_input, model_response):
         model_response = model_response[0]  # Extract the response text from the tuple
 
     cursor.execute('''
-        INSERT INTO chat_history01 (user_input, model_response)
+        INSERT INTO chat_history (user_input, model_response)
         VALUES (?, ?)
     ''', (user_input, model_response))
 
@@ -86,10 +90,10 @@ def store_chat_history(user_input, model_response):
 
 
 def get_chat_history():
-    conn = sqlite3.connect('chathistory01.db')
+    conn = sqlite3.connect('chat_history.db')
     cursor = conn.cursor()
 
-    cursor.execute("SELECT user_input, model_response FROM chat_history01")
+    cursor.execute("SELECT user_input, model_response FROM chat_history")
     chat_history = cursor.fetchall()
 
     conn.close()
@@ -99,50 +103,55 @@ def get_chat_history():
 
 
 
-def summarize_chat_history(chat_history, model_choice="openai"):
-    if model_choice.lower() == "openai":
-        prompt = "Please summarize the following chat history in simple terms:\n\n"
-        for user_input, model_response in chat_history:
-            prompt += f"User: {user_input}\nAssistant: {model_response}\n\n"
-        prompt += "Summary:"
+def summarize_chat_history(chat_history, model_choice="openai", num_sentences=3): # You can adjust num_sentences
+    if not chat_history:
+        return "No chat history to summarize."
 
-        response = openai.Completion.create(
-            engine="text-davinci-002",
-            prompt=prompt,
-            max_tokens=100,
-            n=1,
-            stop=None,
-            temperature=0.7,
-        )
+    text_to_summarize = " ".join([message for _, message in chat_history])
 
-        return response.choices[0].text.strip()
+    # Tokenize into sentences
+    sentences = sent_tokenize(text_to_summarize)
 
-    elif model_choice.lower() == "anthropic":
-        prompt = "Please summarize the following chat history in simple terms:\n\n"
-        for user_input, model_response in chat_history:
-            prompt += f"User: {user_input}\nAssistant: {model_response}\n\n"
-        prompt += "Summary:"
+    # Remove stop words and find word frequencies
+    stop_words = set(stopwords.words('english'))
+    word_frequencies = {}
+    for sentence in sentences:
+        words = nltk.word_tokenize(sentence)
+        for word in words:
+            if word.lower() not in stop_words:
+                if word not in word_frequencies:
+                    word_frequencies[word] = 0
+                word_frequencies[word] += 1
 
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20240620",
-            prompt=prompt,
-            max_tokens_to_sample=100,
-        )
+    # Get most frequent words
+    max_frequency = max(word_frequencies.values())
+    for word in word_frequencies:
+        word_frequencies[word] = word_frequencies[word]/max_frequency
 
-        return response.completion.strip()
+    # Score sentences based on word frequencies
+    sentence_scores = {}
+    for sentence in sentences:
+        for word in nltk.word_tokenize(sentence.lower()):
+            if word in word_frequencies:
+                if sentence not in sentence_scores:
+                    sentence_scores[sentence] = 0
+                sentence_scores[sentence] += word_frequencies[word]
+
+    # Get the top-ranked sentences for the summary
+    summary_sentences = sorted(sentence_scores, key=sentence_scores.get, reverse=True)[:num_sentences]
+    summary = ' '.join(summary_sentences)
+    return summary
+
 
 @app.route('/summarize', methods=['GET'])
 def summarize_history():
-    data = request.get_json()
-    print("Received data:", data)  # Debug statement
-    chat_history = data.get('chatHistory01', [])
+    # Get chat history from form data
+    chat_history_str = request.form.get('chatHistory', '[]') 
+    chat_history = json.loads(chat_history_str) # Parse the JSON string
 
-    if not chat_history:
-        chat_history = get_chat_history()
+    print("Received chat history:", chat_history)  # Add this line for debugging
 
-    model_choice = data.get('modelChoice', 'openai')
-    summary = summarize_chat_history(chat_history, model_choice)
-
+    summary = summarize_chat_history(chat_history, num_sentences=3)  # Adjust num_sentences as needed
     return jsonify(summary=summary)
 
 
@@ -170,11 +179,11 @@ def chat():
 def get_chat_history():
     try:
         limit = int(request.args.get('limit', 10))
-        conn = sqlite3.connect('chat_history01.db')
+        conn = sqlite3.connect('chat_history.db')
         cursor = conn.cursor()
 
         cursor.execute('''
-            SELECT user_input, model_response FROM chat_history01
+            SELECT user_input, model_response FROM chat_history
             ORDER BY id DESC
             LIMIT ?
         ''', (limit,))
@@ -183,7 +192,7 @@ def get_chat_history():
         conn.close()
         
         print("Chat History:", chat_history)
-        return jsonify({"chat_history01": chat_history if chat_history else []})
+        return jsonify({"chat_history": chat_history if chat_history else []})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
