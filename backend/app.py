@@ -6,6 +6,12 @@ import anthropic
 import sqlite3
 import os
 from dotenv import load_dotenv
+import json
+from anthropic import Anthropic
+
+# This is for the chat history summarization
+chat_history_summary = []
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -13,14 +19,13 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
 
- 
+app.config['JSON_SORT_KEYS'] = False
+
 # Set up API keys
 openai.api_key = os.getenv("OPENAI_API_KEY")
 # anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
-client = anthropic.Anthropic(
-    # defaults to os.environ.get("ANTHROPIC_API_KEY")
-    api_key="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",
-)
+client = anthropic.Anthropic()
+
 # Define Pydantic models for input
 class ChatRequest(BaseModel):
     user_input: str
@@ -32,160 +37,165 @@ class ChatRequest(BaseModel):
 
 # Define a function to get model response
 def get_model_response(user_input, model_choice="openai", conversation_history=[]):
+    global chat_history_summary
+    response_text = ""
+
     if model_choice.lower() == "openai":
-        conversation_history.append({"role": "user", "content": user_input})
+        messages = conversation_history + [{"role": "user", "content": user_input}]
         response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",  # Adjust model as needed
-            messages=conversation_history
+            model="gpt-3.5-turbo",
+            messages=messages
         )
-        conversation_history.append({"role": "assistant", "content": response.choices[0].message.content.strip()})
-        return response.choices[0].message.content.strip()
+        response_text = response.choices[0].message.content.strip()
 
     elif model_choice.lower() == "anthropic":
-      try:
-          conversation_history.append({"role": "user", "content": user_input})
-          response = client.messages.create(
-              model="claude-3-5-sonnet-20240620", 
-              prompt="\n\n".join([f"{msg['role']}: {msg['content']}" for msg in conversation_history]),
-              max_tokens_to_sample=1000
-          )
+      messages = [{"role": "user" if msg['role'] == 'user' else "assistant", "content": msg['content']} for msg in conversation_history]
+      messages.append({"role": "user", "content": user_input})
 
-          response_text = response.completion.strip()  # Extract the response text
-          conversation_history.append({"role": "assistant", "content": response.completion.strip()})
-          return response_text
-      except Exception as e:
-          print(f"Anthropic API Error: {e}")  # Print the error to the console
-          return jsonify({"error": f"Error calling Anthropic API: {str(e)}"}), 500 
+      response = client.messages.create(
+          model="claude-2.1",
+          max_tokens=1000,
+          messages=messages
+      )
+      response_text = response.content[0].text
 
 
-# Define a function to store chat history
-def store_chat_history(user_input, model_response):
-    conn = sqlite3.connect('chat_history01.db')
-    cursor = conn.cursor()
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS chat_history01 (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_input TEXT NOT NULL,
-            model_response TEXT NOT NULL
-        )
-    ''')
-
-    if isinstance(model_response, tuple):
-        model_response = model_response[0]  # Extract the response text from the tuple
-
-    cursor.execute('''
-        INSERT INTO chat_history01 (user_input, model_response)
-        VALUES (?, ?)
-    ''', (user_input, model_response))
-
-    conn.commit()
-    conn.close()
-
-
-
-
-def get_chat_history():
-    conn = sqlite3.connect('chathistory01.db')
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT user_input, model_response FROM chat_history01")
-    chat_history = cursor.fetchall()
-
-    conn.close()
-
-    return chat_history
-
-
-
-
-def summarize_chat_history(chat_history, model_choice="openai"):
-    if model_choice.lower() == "openai":
-        prompt = "Please summarize the following chat history in simple terms:\n\n"
-        for user_input, model_response in chat_history:
-            prompt += f"User: {user_input}\nAssistant: {model_response}\n\n"
-        prompt += "Summary:"
-
-        response = openai.Completion.create(
-            engine="text-davinci-002",
-            prompt=prompt,
-            max_tokens=100,
-            n=1,
-            stop=None,
-            temperature=0.7,
-        )
-
-        return response.choices[0].text.strip()
-
-    elif model_choice.lower() == "anthropic":
-        prompt = "Please summarize the following chat history in simple terms:\n\n"
-        for user_input, model_response in chat_history:
-            prompt += f"User: {user_input}\nAssistant: {model_response}\n\n"
-        prompt += "Summary:"
-
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20240620",
-            prompt=prompt,
-            max_tokens_to_sample=100,
-        )
-
-        return response.completion.strip()
-
-@app.route('/summarize', methods=['GET'])
-def summarize_history():
-    data = request.get_json()
-    print("Received data:", data)  # Debug statement
-    chat_history = data.get('chatHistory01', [])
-
-    if not chat_history:
-        chat_history = get_chat_history()
-
-    model_choice = data.get('modelChoice', 'openai')
-    summary = summarize_chat_history(chat_history, model_choice)
-
-    return jsonify(summary=summary)
-
-
+    chat_history_summary.append({"user": user_input, "assistant": response_text})
+    store_chat_history(user_input, response_text)
+    return response_text
 
 # Define API endpoint for chat
 @app.route('/chat', methods=['GET'])
 def chat():
     try:
-        chat_request = ChatRequest(**request.args.to_dict())
-        response = get_model_response(chat_request.user_input, chat_request.model_choice, chat_request.conversation_history)
+        user_input = request.args.get('user_input')
+        model_choice = request.args.get('model_choice', 'openai')
+        conversation_history = json.loads(request.args.get('conversation_history', '[]'))
+
+        response = get_model_response(user_input, model_choice, conversation_history)
         
-        if isinstance(response, tuple):
-            response_text = response[0]  # Extract the response text from the tuple
-        else:
-            response_text = response
-        
-        store_chat_history(chat_request.user_input, response_text)
-        return jsonify({"response": response_text, "conversation_history": chat_request.conversation_history})
+        return jsonify({"response": response, "conversation_history": conversation_history + [{"role": "user", "content": user_input}, {"role": "assistant", "content": response}]})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# Function to store chat history
+def store_chat_history(user_input, model_response):
+    conn = sqlite3.connect('chat_history.db')
+    cursor = conn.cursor()
+    
+    # Create table if it doesn't exist
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_history
+        (id INTEGER PRIMARY KEY AUTOINCREMENT,
+         user_input TEXT,
+         model_response TEXT,
+         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)
+    ''')
+    
+    # Insert the new chat entry
+    cursor.execute('''
+        INSERT INTO chat_history (user_input, model_response)
+        VALUES (?, ?)
+    ''', (user_input, model_response))
+    
+    conn.commit()
+    conn.close()
+
+def get_chat_history(limit=None):
+    conn = sqlite3.connect('chat_history.db')
+    cursor = conn.cursor()
+    
+    if limit is None:
+        cursor.execute('''
+            SELECT user_input, model_response FROM chat_history
+            ORDER BY id DESC
+        ''')
+    else:
+        cursor.execute('''
+            SELECT user_input, model_response FROM chat_history
+            ORDER BY id DESC
+            LIMIT ?
+        ''', (limit,))
+    
+    chat_history = cursor.fetchall()
+    conn.close()
+    return chat_history
+
+
+def summarize_chat_history(limit=None):
+    global chat_history_summary
+    recent_history = chat_history_summary[-limit:]
+    formatted_history = "\n".join([f"User: {msg['user']}\nAssistant: {msg['assistant']}" for msg in recent_history])
+
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that summarizes conversations."},
+                {"role": "user", "content": f"Please summarize the following conversation:\n\n{formatted_history}"}
+            ],
+            temperature=0.5,
+            max_tokens=300
+        )
+        
+        if response.choices and len(response.choices) > 0:
+            summary = response.choices[0].message.content.strip()
+            return summary
+        else:
+            return "Unable to generate summary."
+    except Exception as e:
+        print(f"Error in summarizing chat history: {e}")
+        return None
+
+
+@app.route("/chat/summary", methods=['GET'])
+def get_chat_summary():
+    try:
+        limit = int(request.args.get('limit', 50))
+        summary = summarize_chat_history(limit)
+        if summary:
+            return jsonify({
+                "summary": summary,
+                "chat_history": chat_history_summary[-limit:]
+            })
+        else:
+            return jsonify({"error": "Failed to generate summary"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
 
 
 # Define API endpoint to retrieve chat history (GET method)
 @app.route("/chat/history", methods=['GET'])
-def get_chat_history():
+def get_chat_history_endpoint():
     try:
         limit = int(request.args.get('limit', 10))
-        conn = sqlite3.connect('chat_history01.db')
-        cursor = conn.cursor()
-
-        cursor.execute('''
-            SELECT user_input, model_response FROM chat_history01
-            ORDER BY id DESC
-            LIMIT ?
-        ''', (limit,))
-
-        chat_history = cursor.fetchall()
-        conn.close()
+        chat_history = get_chat_history(limit)
         
         print("Chat History:", chat_history)
-        return jsonify({"chat_history01": chat_history if chat_history else []})
+        return jsonify({"chat_history": chat_history if chat_history else []})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+
+# clearing the chat history
+@app.route("/clear-history", methods=['POST'])
+def clear_history():
+    global chat_history_summary
+    chat_history_summary = []
+    
+    # Clear the database
+    conn = sqlite3.connect('chat_history.db')
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM chat_history")
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"message": "Chat history cleared successfully"})
+
 
 # Test API endpoint for GET method
 @app.route("/")
