@@ -1,0 +1,22 @@
+.chatbotContainer {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .header {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+  }
+  
+  .chatArea {
+    flex-grow: 1;
+    overflow-y: auto;
+  }
+  
+  .darkMode {
+    background-color: #333;
+    color: #fff;
+  }
+  
