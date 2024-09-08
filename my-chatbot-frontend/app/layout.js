@@ -18,8 +18,8 @@ const geistMono = localFont({
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <GoogleOAuthProvider clientId="535712446017-93leontoehv7i3v5bcpnokmb2f6qfgbv.apps.googleusercontent.com">
+      <body style={{backgroundColor: 'black'}} className={`${geistSans.variable} ${geistMono.variable}`}>
+        <GoogleOAuthProvider clientId = {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
           {children}
         </GoogleOAuthProvider>
       </body>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import styles from '../chatbot.module.css';
 
 export default function ChatHistory() {
   const [fullChatHistory, setFullChatHistory] = useState([]);
@@ -33,14 +34,15 @@ export default function ChatHistory() {
           font-size: 16px;
           cursor: pointer;
           margin-bottom: 20px;
-          background-color: #4CAF50;
-          color: white;
+          background-color: var(--accent-color);
+          color: var(--text-color);
           border: none;
-          border-radius: 4px;
+          border-radius: 20px;
           transition: background-color 0.3s ease;
         }
         .toggle-button:hover {
-          background-color: #45a049;
+          background-color: var(--highlight-color);
+          color: black;
         }
         .chat-history-container {
           max-height: 300px;

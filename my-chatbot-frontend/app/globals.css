@@ -1,7 +1,40 @@
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
+:root {
+  --primary-color: #0e2b5c;
+  --accent-color: #3498db;
+  --background-color: #ffffff;
+  --text-color: #333333;
 }
 
+body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.header {
+  background-color: var(--primary-color);
+  color: var(--background-color);
+}
+
+.button {
+  background-color: var(--accent-color);
+  color: var(--background-color);
+}
+
+.input {
+  border-color: var(--primary-color);
+}
+
+.message {
+  background-color: var(--background-color);
+  border: 1px solid var(--primary-color);
+}
+
+.userMessage {
+  background-color: var(--accent-color);
+  color: var(--background-color);
+}
+
+.botMessage {
+  background-color: var(--primary-color);
+  color: var(--background-color);
+}
