@@ -23,8 +23,9 @@ app.config['JSON_SORT_KEYS'] = False
 
 # Set up API keys
 openai.api_key = os.getenv("OPENAI_API_KEY")
-# anthropic.api_key = os.getenv("ANTHROPIC_API_KEY")
-client = anthropic.Anthropic()
+# os.environ["ANTHROPIC_API_KEY"] = ""  # this code was used to add the api key directly
+
+client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
 # Define Pydantic models for input
 class ChatRequest(BaseModel):

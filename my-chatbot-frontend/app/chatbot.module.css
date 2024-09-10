@@ -1,0 +1,144 @@
+.chatbotWrapper {
+  --background-color: rgb(13, 13, 13);
+  --secondary-background: rgba(22, 22, 22, 1);
+  --translucent-background: rgba(23, 23, 23, .6);
+  --accent-color: rgb(38, 38, 38);
+  --text-color: rgb(204, 204, 204);
+  --secondary-text: hsl(77, 0%, 48%);
+  --highlight-color: rgb(221, 255, 0);
+  --buttons-color: #00bfff;
+  --buttons-default: white;
+}
+
+.chatbotContainer {
+  display: flex;
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 100vh;
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.sidebar {
+  width: 30%;
+  max-width: 300px;
+  padding: 20px;
+  background-color: var(--secondary-background);
+}
+
+.header {
+  margin-bottom: 20px;
+}
+
+.button {
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  border: none;
+  padding: 10px 15px;
+  margin-right: 10px;
+  cursor: pointer;
+  border-radius: 20px;
+}
+
+.clearButton {
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  margin-top: 20px;
+  position: absolute;
+  bottom: 50px;
+}
+
+.clearButton:hover {
+  background-color: rgb(220, 82, 82);
+  color: black;
+}
+
+.mainContent {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.modelSelector {
+  margin-bottom: 20px;
+}
+
+.label {
+  margin-right: 10px;
+  color: var(--secondary-text);
+}
+
+.select {
+  padding: 5px;
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  border: 1px solid var(--secondary-text);
+}
+
+.chatArea {
+  flex-grow: 1;
+  overflow-y: auto;
+  border: 1px solid var(--secondary-text);
+  border-radius: 5px;
+  padding: 15px;
+  margin-bottom: 20px;
+  background-color: var(--translucent-background);
+}
+
+.message {
+  margin-bottom: 10px;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.userMessage {
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  align-self: flex-end;
+}
+
+.botMessage {
+  background-color: var(--secondary-background);
+  color: var(--text-color);
+  align-self: flex-start;
+}
+
+.inputArea {
+  display: flex;
+  margin-bottom: 20px;
+}
+
+.input {
+  flex-grow: 1;
+  padding: 10px;
+  background-color: var(--accent-color);
+  color: var(--text-color);
+  border: 1px solid var(--secondary-text);
+  border-radius: 5px;
+  margin-right: 10px;
+}
+
+.sendButton {
+  background-color: var(--buttons-color);
+  color: var(--background-color);
+}
+
+.summaryArea{
+  background-color:  #f9f9f9;
+}
+
+@media (max-width: 768px) {
+  .chatbotContainer {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    max-width: none;
+  }
+
+  .mainContent {
+    width: 100%;
+  }
+}

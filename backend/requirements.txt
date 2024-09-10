@@ -1,0 +1,6 @@
+Flask
+flask-cors
+pydantic
+openai
+anthropic
+python-dotenv
