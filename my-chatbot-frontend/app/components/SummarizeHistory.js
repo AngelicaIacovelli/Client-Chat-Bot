@@ -10,7 +10,7 @@ export default function SummarizeHistory() {
   const fetchSummary = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get('http://localhost:5000/chat/summary');
+      const response = await axios.get('https://context-by-nucleo-research.onrender.com/chat/summary');
       setSummary(response.data.summary);
       setShowSummary(true);
       console.log('Chat History Summary:', response.data.chat_history);

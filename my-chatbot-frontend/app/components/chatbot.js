@@ -34,7 +34,7 @@ const Chatbot = () => {
     };
 
     try {
-      const response = await axios.get('http://localhost:5000/chat', { 
+      const response = await axios.get('https://context-by-nucleo-research.onrender.com/chat', { 
         params: newMessage,
       });
 
@@ -50,7 +50,7 @@ const Chatbot = () => {
     const confirmClear = window.confirm('Are you sure you want to clear the chat history?');
     if (confirmClear) {
       try {
-        await axios.post('http://localhost:5000/clear-history');
+        await axios.post('https://context-by-nucleo-research.onrender.com/clear-history');
         setConversationHistory([]);
         alert('Chat history cleared successfully');
       } catch (error) {

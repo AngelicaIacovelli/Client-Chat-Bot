@@ -10,7 +10,7 @@ export default function ChatHistory() {
   const toggleChatHistory = async () => {
     setIsLoadingHistory(true);
     try {
-      const response = await axios.get('http://localhost:5000/chat/history');
+      const response = await axios.get('https://context-by-nucleo-research.onrender.com/chat/history');
       const chatHistory = response.data.chat_history || [];
       const formattedChatHistory = chatHistory.map(([userInput, modelResponse]) => [
         userInput,
