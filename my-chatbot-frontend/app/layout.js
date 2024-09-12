@@ -15,7 +15,6 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
-console.log("Google Client ID:", process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
 
 export default function RootLayout({ children }) {
   return (
