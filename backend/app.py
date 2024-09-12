@@ -7,7 +7,6 @@ import sqlite3
 import os
 from dotenv import load_dotenv
 import json
-from anthropic import Anthropic
 
 # This is for the chat history summarization
 chat_history_summary = []
@@ -17,7 +16,7 @@ chat_history_summary = []
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 app.config['JSON_SORT_KEYS'] = False
 
@@ -44,7 +43,7 @@ def get_model_response(user_input, model_choice="openai", conversation_history=[
     if model_choice.lower() == "openai":
         messages = conversation_history + [{"role": "user", "content": user_input}]
         response = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-2024-08-06",
             messages=messages
         )
         response_text = response.choices[0].message.content.strip()
@@ -54,7 +53,7 @@ def get_model_response(user_input, model_choice="openai", conversation_history=[
       messages.append({"role": "user", "content": user_input})
 
       response = client.messages.create(
-          model="claude-2.1",
+          model="claude-3-5-sonnet-20240620",
           max_tokens=1000,
           messages=messages
       )
@@ -206,4 +205,4 @@ def read_root():
 
 # Run the Flask app
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
