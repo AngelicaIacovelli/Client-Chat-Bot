@@ -11,7 +11,7 @@ Frontend:
 5) To check if the app is running: open a browser and go to: http://localhost:3000
 
 
-
+Also, add a .env file with your respective openai and anthropic api keys in the root directory of the project
 
 
 Backend:
